@@ -8,11 +8,14 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import Database.DatabaseConnection;
 import Process.*;
 public class frmDanhMucLoaiSp extends javax.swing.JFrame {
     private JTextField textField1;
@@ -28,7 +31,9 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
     private JTable tblSanPham;
     private JScrollPane scrollPane;
     private final DefaultTableModel dtm = (DefaultTableModel) tblSanPham.getModel();
-    private List<LoaiSP> tmpProduct = new ArrayList<LoaiSP>();
+    private List<LoaiSP> addProduct = new ArrayList<LoaiSP>();
+    private List<LoaiSP> deleteProduct = new ArrayList<LoaiSP>();
+
     private void setNull(){
         textField1.setText(null);
         textField2.setText(null);
@@ -75,7 +80,7 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
                     JOptionPane.showMessageDialog(null, "Vui long nhap day du");
                     return;
                 }
-                tmpProduct.add(new LoaiSP(ma, ten));
+                addProduct.add(new LoaiSP(ma, ten));
                 dtm.addRow(new String[]{ma, ten});
                 setNull();
             }
@@ -83,43 +88,55 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
         deleteBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                String txt = textField1.getText();
-                try {
-                    LoaiSPImpl lsp = new LoaiSPImpl();
-                    if(JOptionPane.showConfirmDialog(null, "Ban co muon xoa khong") == 0){
-                        boolean rowsAffected = lsp.deleteLoaiSP(txt);
-                        if(rowsAffected){
-                            dtm.setRowCount(0);
-                            showData();
-                            setNull();
-                            JOptionPane.showMessageDialog(null, "xoa thanh cong");
-                        }
-                        else {
-                            JOptionPane.showMessageDialog(null, "xoa khong thanh cong");
-                        }
+                String ma = textField1.getText();
+                boolean found = false;
+                for (int i = 0; i < addProduct.size(); i++) {
+                    LoaiSP x = addProduct.get(i);
+                    if (ma.equals(x.getMaLoai())) {
+                        addProduct.remove(i);
+                        found = true;
+                        break;
                     }
                 }
-                catch (SQLException ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, "xoa khong thanh cong");
+                if (found) {
+                    for(int i = 0; i < dtm.getRowCount(); i++){
+                        if(ma.equals(dtm.getValueAt(i,0).toString())){
+                            dtm.removeRow(i);
+                            break;
+                        }
+                    }
+                    deleteProduct.add(new LoaiSP(ma, null));
+                    JOptionPane.showMessageDialog(null, "da xoa");
                 }
-
+                setNull();
             }
         });
         tblSanPham.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                try{
-                    LoaiSPImpl lsp = new LoaiSPImpl();
-                    int row = tblSanPham.getSelectedRow();
+                int row = tblSanPham.getSelectedRow();
+                if(row != -1){
                     String txt = tblSanPham.getModel().getValueAt(row, 0).toString();
-                    LoaiSP obj = lsp.getLoaiSP(txt);
+                    LoaiSP obj = null;
+                    for(LoaiSP x : addProduct){
+                        if(txt.equals(x.getMaLoai())){
+                            obj = x;
+                            break;
+                        }
+                    }
+                    if(obj == null){
+                        try{
+                            LoaiSPImpl lsp = new LoaiSPImpl();
+                            obj = lsp.getLoaiSP(txt);
+                        }
+                        catch (SQLException e1){
+                            e1.printStackTrace();
+                        }
+                    }
                     if(obj != null){
                         textField1.setText(obj.getMaLoai());
                         textField2.setText(obj.getTenLoaiSP());
                     }
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
                 }
 
             }
@@ -130,11 +147,21 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
                 try {
                     LoaiSPImpl lsp = new LoaiSPImpl();
                     boolean allSave = true;
-                    for(LoaiSP x : tmpProduct){
-                        boolean rowsAffected = lsp.addLoaiSP(x.getMaLoai(), x.getTenLoaiSP());
+
+                    //Xoa cac ban ghi trong delete product
+                    for(LoaiSP x : deleteProduct){
+                        boolean rowsAffected = lsp.deleteLoaiSP(x.getMaLoai());
                         if(!rowsAffected){
                             allSave = false;
                             break;
+                        }
+                    }
+                    if(allSave || deleteProduct.isEmpty()){
+                        for(LoaiSP x : addProduct){
+                            boolean rowsAffected = lsp.addLoaiSP(x.getMaLoai(), x.getTenLoaiSP());
+                            if(!rowsAffected){
+                                allSave = false;
+                            }
                         }
                     }
 
@@ -142,15 +169,17 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
                         dtm.setRowCount(0);
                         showData();
                         setNull();
-                        tmpProduct.clear();
+                        addProduct.clear();
+                        deleteProduct.clear();
                         JOptionPane.showMessageDialog(null, "luu thanh cong");
                     }
                     else {
                         JOptionPane.showMessageDialog(null, "luu 0 thanh cong");
+                        
                     }
                 } catch (SQLException ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, "them that bai");
+                    JOptionPane.showMessageDialog(null, "Luu that bai");
                 }
             }
         });
@@ -161,3 +190,4 @@ public class frmDanhMucLoaiSp extends javax.swing.JFrame {
         frm.setVisible(true);
     }
 }
+
